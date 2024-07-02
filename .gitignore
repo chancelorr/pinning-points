@@ -1,0 +1,9 @@
+# ignore data
+data/
+
+# ignore shapes
+shapes/
+
+# ignore plots
+plots/
+
