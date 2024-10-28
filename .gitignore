@@ -1,9 +1,18 @@
 # ignore data
 data/
+processed_data/
 
 # ignore shapes
 shapes/
 
 # ignore plots
 plots/
+figs/
+
+# ignore configs that arent the template
+config/*
+!config/config_template.ini
+
+# ignore misc
+misc/
 
