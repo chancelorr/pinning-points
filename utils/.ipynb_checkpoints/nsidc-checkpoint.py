@@ -86,7 +86,8 @@ def download_is2(short_name='ATL03', start_date='2018-01-01', end_date='2030-01-
         # The larger the tolerance value, the more simplified the polygon.
         # Orient counter-clockwise: CMR polygon points need to be provided in counter-clockwise order. 
         # The last point should match the first point to close the polygon.
-        poly = orient(gdf.simplify(0.001, preserve_topology=True).loc[0],sign=1.0)
+        gdf = gpd.GeoDataFrame(geometry=[gdf.unary_union])
+        poly = orient(gdf.convex_hull.simplify(0.001, preserve_topology=True).loc[0],sign=1.0)
 
         geojson_data = gpd.GeoSeries(poly).to_json() # Convert to geojson
         geojson_data = geojson_data.replace(' ', '') #remove spaces for API call
@@ -187,7 +188,9 @@ def download_is2(short_name='ATL03', start_date='2018-01-01', end_date='2030-01-
                 Boundingshape = polygon
             else:
                 gdf = gpd.read_file(shape_subset)
-                poly = orient(gdf.simplify(0.05, preserve_topology=False).loc[0],sign=1.0)
+                gdf = gpd.GeoDataFrame(geometry=[gdf.unary_union])
+                print(f'CR: {gdf}')
+                poly = orient(gdf.convex_hull.simplify(0.05, preserve_topology=False).loc[0],sign=1.0)
                 geojson_data = gpd.GeoSeries(poly).to_json()
                 geojson_data = geojson_data.replace(' ', '')
                 Boundingshape = ','.join([str(c) for xy in zip(*poly.exterior.coords.xy) for c in xy])
