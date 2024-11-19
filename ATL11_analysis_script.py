@@ -560,8 +560,7 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
     if rolling is not None: plotname = f'{plot_dir}/{basin}_dhdt_avg{rolling}_map.png'
     if save: 
     	fig.savefig(plotname, dpi=dpi, bbox_inches='tight', transparent=transparent)
-        cfig.savefig(cbarname, dpi=dpi/2, bbox_inches='tight', transparent=transparent)
-
+     #cfig.savefig(cbarname, dpi=dpi/2, bbox_inches='tight', transparent=transparent)     
     plt.close(fig)
 
     return fig
