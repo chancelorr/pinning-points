@@ -3,7 +3,7 @@
 '''
 By Chance
 
-Loads and processes the data
+Loads and processes ATL11 data
 
 Input: .ini config file which fills all variables in preamble
 
