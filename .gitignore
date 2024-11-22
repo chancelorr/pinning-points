@@ -3,11 +3,13 @@ data/
 processed_data/
 
 # ignore shapes
-shapes/
+shapes/*
+!shapes/.gitkeep
 
 # ignore plots
 plots/
-figs/
+figs/*
+!figs/.gitkeep
 
 # ignore configs that arent the template
 config/*
@@ -15,4 +17,3 @@ config/*
 
 # ignore misc
 misc/
-
