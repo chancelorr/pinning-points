@@ -4,7 +4,8 @@ processed_data/
 
 # ignore shapes
 shapes/*
-!shapes/.gitkeep
+!shapes/scripps_antarctic_polygons_CR.*
+!shapes/Cp-D_test.*
 
 # ignore plots
 plots/
