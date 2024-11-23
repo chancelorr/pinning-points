@@ -97,8 +97,8 @@ region = config.get('data', 'region')
 shape = f'shapes/{basin}_{region}.shp'
 output_dir = config.get('data', 'output_dir')
 rema_path = config.get('data', 'rema_path')
-try: plot_dir = config.get('data', 'plot_dir')
-except: plot_dir='plots'
+try: fig_dir = config.get('data', 'fig_dir')
+except: fig_dir='figs'
 
 #access params
 uid = config.get('access', 'uid')
@@ -222,7 +222,7 @@ def get_ground_tracks(datadict):
     gdf_gts = gpd.GeoDataFrame(geometry=pd.concat(gts).groupby(['pt'])[['geometry']].apply(lambda x: LineString(x.geometry.tolist()))
         ).reset_index().set_crs(crs_latlon)
     colordict = {'col0': 'darkblue', 'col1': 'rebeccapurple', 'col2': 'palevioletred', 'col3': 'thistle'}
-    gdf_gts['plotcolor'] = gdf_gts.apply(lambda x: colordict['col%s' % (int(x.pt[2])-1)], axis=1)
+    gdf_gts['figcolor'] = gdf_gts.apply(lambda x: colordict['col%s' % (int(x.pt[2])-1)], axis=1)
     gdf_gts['track'] = ds.track.data[0]
     
     return gdf_gts
@@ -457,16 +457,19 @@ ds_pp = xr.open_dataset(f'{processed_dir}/{basin}_ds_pp.nc')
 print('DONE')
 
 print('Reading ESRI shapefiles into geodataframes...', end='', flush=True)
-gdf_gts_all = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_all.shp')
-gdf_gts_gr = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_gr.shp')
-gdf_gts_fl = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_fl.shp')
-gdf_gts_pp = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_pp.shp')
+gdf_gts_all = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_all.shp', engine='pyogrio')
+gdf_gts_gr = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_gr.shp', engine='pyogrio')
+gdf_gts_fl = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_fl.shp', engine='pyogrio')
+gdf_gts_pp = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_pp.shp', engine='pyogrio')
 print('DONE')
+
+
 
 # plot functions
 
 ## make plot function
-def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, transparent=True):
+def make_map(h_plot=None, dpi=600, rolling=None, vlims=[-5, 5], plot_rema=False, save=False, transparent=True):
+    
     # figure setup
     major_font_size = 12
     minor_font_size = 10
@@ -477,22 +480,23 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
     
     # plot the basemap and ground tracks
 
-    with rs.open(rema_path) as src:
-        dem = src.read()
-        tr = src.transform
-        bbox = box(*gdf_ext_all.total_bounds)
-        src_masked, src_masked_tr = mask(src, shapes=[gdf_ext_all.geometry[0]], 
-            crop=True, filled=False)
-        src_hs = np.ma.masked_array(es.hillshade(src_masked[0].filled(np.nan)), mask=src_masked.mask[0])
-        plot.show(src_hs, ax=ax, transform=src_masked_tr, cmap='Greys_r', 
-            aspect='equal', vmin=-150, vmax=100)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_axis_off()
+    if plot_rema:
+        with rs.open(rema_path) as src:
+            dem = src.read()
+            tr = src.transform
+            bbox = box(*gdf_ext_all.total_bounds)
+            src_masked, src_masked_tr = mask(src, shapes=[gdf_ext_all.geometry[0]], 
+                crop=True, filled=False)
+            src_hs = np.ma.masked_array(es.hillshade(src_masked[0].filled(np.nan)), mask=src_masked.mask[0])
+            plot.show(src_hs, ax=ax, transform=src_masked_tr, cmap='Greys_r', 
+                aspect='equal', vmin=-150, vmax=100)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_axis_off()
     
     #add ground tracks
     lc_list=[]
-    if color_by is not None:
+    if h_plot is not None:
         for i in range(len(gdf_gts_all)):
             row = gdf_gts_all[i:i+1]
             coords = row.get_coordinates()
@@ -508,15 +512,17 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
             # Create a LineCollection
             lc = LineCollection(segments, cmap=cmap, norm=plt.Normalize(vlims[0], vlims[1]))
-            h_plot = h_plot.sel(degree=1).sel(track=t, pt=pt).polyfit_coefficients
             if rolling is not None: 
-                h_plot = np.array(pd.Series(h_plot).rolling(window=rolling, center=True, min_periods=1, 
+                try: 
+                    h_plot = np.array(pd.Series(h_plot.sel(track=t, pt=pt)).rolling(window=rolling, center=True, min_periods=1, 
                     win_type='gaussian').mean(std=rolling/3))
+                except: print('Couldnt write this one')
+            else: h_plot = h_plot.sel(track=t, pt=pt)
             lc.set_array(h_plot)
             lc.set_linewidth(line_w)
             lc_list.append(lc)
             ax.add_collection(lc)
-    elif color_by is None:
+    elif h_plot is None:
         gdf_gts_all.plot(ax=ax, color=gdf_gts_all.plotcolor, linewidth=line_w)
         gdf_gts_pp.plot(ax=ax, color='lightblue', linewidth=line_w)
     
@@ -525,14 +531,14 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
     gdf_pp.plot(ax=ax, color='None', edgecolor='black', label='grounded ice', linewidth=0.2, zorder=501)
     gdf_ext.apply(lambda p: p.buffer(1e3)).plot(ax=ax, color='None', edgecolor='royalblue', label='floating ice', linewidth=0.4, zorder=502)
     
-    
-    cfig, cax = plt.subplots(figsize=[4, 1])
-    cax.axis('off')
+
+    cfig, cax = plt.subplots(figsize=[4, 0.25])
+    #cax.axis('off')
     #ax.text(0.5, 0.96, f'ICESat-2 ATL11 Height Change\n Basin {basin} 2019-2024', transform=ax.transAxes, 
     #        ha='center', va='center', fontsize=major_font_size, bbox=boxprops, zorder=502)
     # Create a ScalarMappable with the same colormap and normalization
     norm = mcolors.Normalize(vmin=vlims[0], vmax=vlims[1])
-    sm = cm.ScalarMappable(cmap=cmc.vik_r, norm=norm)
+    sm = cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])  # Only needed for older versions of matplotlib
     
     # Add the inset axis
@@ -543,8 +549,8 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
     #fig.patches.append(Rectangle((cax_pos[0]-, cax_pos[1]), cax_pos[2]*1.25, cax_pos[3]*2,
     #    transform=fig.transFigure, color='white', zorder=1))
     
-    # Add a colorbar to the plot, with a specific location
-    cbar = plt.colorbar(sm, cax=cax, orientation='horizontal', fraction=0.1, pad=0.0)
+    # Add a colorbar to the fig, with a specific location
+    cbar = cfig.colorbar(sm, cax=cax, orientation='horizontal', fraction=0.1, pad=0.0)
     cbar.ax.tick_params(labelsize=minor_font_size) 
     cbar.set_label('ICESat-2 height change \n 2018-2024 (m yr$^{-1}$)', fontsize=minor_font_size)
     cbar.outline.set_edgecolor('black')
@@ -552,21 +558,23 @@ def make_map(color_by='', dpi=600, rolling=None, vlims=[-5, 5], save=False, tran
     set_axis_color(cax, 'black')
     
     # Customize the colorbar ticks if needed
-    cbar.set_ticks([-1, 0, 1])
+    cbar.set_ticks([vlims[0], 0, vlims[1]])
     #cbar.set_ticklabels(['0', '0.2', '0.4', '0.6', '0.8', '1'])
     
-    plotname = f'{plot_dir}/{basin}_dhdt_map.png'
-    cbarname = f'{plot_dir}/{basin}_dhdt_map_cbar.png'
-    if rolling is not None: plotname = f'{plot_dir}/{basin}_dhdt_avg{rolling}_map.png'
+    figname = f'{fig_dir}/{basin}_dhdt_map.png'
+    print(figname)
+    cbarname = f'{fig_dir}/{basin}_dhdt_map_cbar.png'
+    if rolling is not None: figname = f'{fig_dir}/{basin}_dhdt_avg{rolling}_map.png'
     if save: 
-    	fig.savefig(plotname, dpi=dpi, bbox_inches='tight', transparent=transparent)
-        #cfig.savefig(cbarname, dpi=dpi/2, bbox_inches='tight', transparent=transparent)     
+        print('Saving figure...', end='', flush=True)
+        fig.savefig(figname, dpi=dpi, bbox_inches='tight', transparent=transparent)
+        cfig.savefig(cbarname, dpi=dpi/2, bbox_inches='tight', transparent=transparent)     
     
     plt.close(fig)
     
     return fig
     
-def make_ensemble_plots(save=False):
+def make_ensemble_figs(save=False):
     imagery_aspect = 1.4
     major_font_size = 16
     minor_font_size = 16
@@ -689,15 +697,15 @@ def make_ensemble_plots(save=False):
     fig_list.append(fig)
     
     if save:
-        fig_list[0].savefig(f'{plot_dir}/{basin}_median_anom.png', 
+        fig_list[0].savefig(f'{fig_dir}/{basin}_median_anom.png', 
             dpi=300, bbox_inches='tight', transparent=False)
-        fig_list[1].savefig(f'{plot_dir}/{basin}_median_anom_legend.png',
+        fig_list[1].savefig(f'{fig_dir}/{basin}_median_anom_legend.png',
             dpi=300, bbox_inches='tight', transparent=False)
-        fig_list[2].savefig(f'{plot_dir}/{basin}_median_count.png',
+        fig_list[2].savefig(f'{fig_dir}/{basin}_median_count.png',
             dpi=300, bbox_inches='tight', transparent=False)
-        fig_list[3].savefig(f'{plot_dir}/{basin}_median_count_legend.png',
+        fig_list[3].savefig(f'{fig_dir}/{basin}_median_count_legend.png',
             dpi=300, bbox_inches='tight', transparent=False)
-        fig_list[4].savefig(f'{plot_dir}/{basin}_h_abs_hist.png',
+        fig_list[4].savefig(f'{fig_dir}/{basin}_h_abs_hist.png',
             dpi=300, bbox_inches='tight', transparent=False)
 
     for fig in fig_list: plt.close(fig)
@@ -706,28 +714,33 @@ def make_ensemble_plots(save=False):
 
 #Select value to plot
 map_variable = 'h_ano_lin'
-print('Calculating map variable...', end='', flush=True)
-if map_variable=='h_ano_annual': 
-    for y in np.arange(2018, 2025, 1): 
-        cycle_arr = np.arange((y-2018)*4, (y-2018)*4+4, 1)
-        h_plot = ds_all.h_ano()
-elif map_variable=='h_ano_lin': 
-    h_plot = ds_all.h_ano.polyfit('cycle_number', deg=1, skipna=True)
-elif map_variable=='determination_coeff':
-    h_ano_lin = ds_all.h_ano.polyfit('cycle_number', deg=1, skipna=True)
-    m, b = h_ano_lin.sel(degree=1).polyfit_coefficients, h_ano_lin.sel(degree=0).polyfit_coefficients
-    h_hat = ds_all.cycle_number*m+b
-    r2 = 1-((ds_all.h_ano() - h_hat)**2).sum(dim='cycle_number')/((ds_all.h_ano() - ds_all.h_ano().mean(dim='cycle_number'))**2).sum(dim='cycle_number')
-    h_plot = r2
 
-print('DONE')
+def calculate_map_variable(map_variable):
+    if map_variable=='h_ano_annual': 
+        for y in np.arange(2018, 2025, 1): 
+            cycle_arr = np.arange((y-2018)*4, (y-2018)*4+4, 1)
+            h_plot = ds_all.h_ano()
+    elif map_variable=='h_ano_lin':
+        h_plot = ds_all.h_ano.polyfit('cycle_number', deg=1, skipna=True)
+        h_plot = h_plot.sel(degree=1).polyfit_coefficients
+    elif map_variable=='determination_coeff':
+        h_ano_lin = ds_all.h_ano.polyfit('cycle_number', deg=1, skipna=True)
+        m, b = h_ano_lin.sel(degree=1).polyfit_coefficients, h_ano_lin.sel(degree=0).polyfit_coefficients
+        h_hat = ds_all.cycle_number*m+b
+        r2 = 1-((ds_all.h_ano() - h_hat)**2).sum(dim='cycle_number')/((ds_all.h_ano() - ds_all.h_ano().mean(dim='cycle_number'))**2).sum(dim='cycle_number')
+        h_plot = r2
+    return h_plot
 
 ## Run the plot functions ##
-print('Generating map...', end='', flush=True)
-#fig = make_map(color_by='', dpi=1200, vlims=[-1, 1], rolling=50, save=True, transparent=True)
 
+print('Calculating map variable...', end='', flush=True)
+h_plot = calculate_map_variable('h_ano_lin')
 print('DONE')
 
-print('Generating ensemble plots...', end='', flush=True)
-#fig_list = make_ensemble_plots(save=True)
+print('Generating map...', end='', flush=True)
+fig = make_map(h_plot, dpi=100, vlims=[-1, 1], rolling=50, save=True, transparent=True)
+print('DONE')
+
+print('Generating ensemble figs...', end='', flush=True)
+#fig_list = make_ensemble_figs(save=True)
 print('DONE')
