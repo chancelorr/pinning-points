@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 '''
 By Chance
 
@@ -717,18 +718,18 @@ print('Calculating map variable...', end='', flush=True)
 tic = time.time()
 h_in = calculate_map_variable('h_ano_lin')
 toc = time.time()
-print(f'DONE in {int((toc-tic)/60)}m {(toc-tic)%60:.0f} s')
+print(f'DONE in {int((toc-tic)/60)}m {60-(toc-tic)%60:.0f} s')
 
 ## Run the plot functions ##
 
 print('Generating map...', end='', flush=True)
 tic = time.time()
-fig = make_map(h_in, dpi=1200, vlims=[-1, 1], rolling=50, save=True, transparent=True)
+fig = make_map(h_in, dpi=2000, vlims=[-1, 1], rolling=50, plot_rema=True, save=True, transparent=True)
 toc = time.time()
-print(f'DONE in {int((toc-tic)/60)}m {(toc-tic)%60:.0f} s')
+print(f'DONE in {int((toc-tic)/60)}m {60-(toc-tic)%60:.0f} s')
 
 print('Generating ensemble figs...', end='', flush=True)
 tic = time.time()
 #fig_list = make_ensemble_figs(save=True)
 toc = time.time()
-print(f'DONE in {int((toc-tic)/60)}m {(toc-tic)%60:.0f} s')
+print(f'DONE in {int((toc-tic)/60)}m {60-(toc-tic)%60:.0f} s')
