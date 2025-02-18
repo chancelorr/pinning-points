@@ -1,9 +1,20 @@
 # ignore data
 data/
+processed_data/
 
 # ignore shapes
-shapes/
+shapes/*
+!shapes/scripps_antarctic_polygons_CR.*
+!shapes/Cp-D_test.*
 
 # ignore plots
 plots/
+figs/*
+!figs/.gitkeep
 
+# ignore configs that arent the template
+config/*
+!config/config_template.ini
+
+# ignore misc
+misc/
