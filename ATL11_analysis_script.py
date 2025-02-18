@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 '''
 By Chance
 
@@ -24,6 +23,7 @@ import os
 import sys
 import h5py
 import configparser
+import json
 
 #Standard libraries
 import numpy as np
@@ -61,7 +61,6 @@ from utils.utilities import is2dt2str
 
 #For error handling
 import traceback
-
 
 ini = 'config/Cp-D_all_lumos.ini'
 
@@ -449,8 +448,6 @@ gdf_gts_fl = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_fl.shp', engine='py
 gdf_gts_pp = gpd.read_file(f'{processed_dir}/{basin}_gdf_gts_pp.shp', engine='pyogrio')
 print('DONE')
 
-
-
 # plot functions
 
 ## make plot function
@@ -517,9 +514,9 @@ def make_map(h_in=None, dpi=600, rolling=None, vlims=[-5, 5], plot_rema=False, s
     gdf_pp.plot(ax=ax, color='None', edgecolor='black', label='grounded ice', linewidth=0.2, zorder=501)
     gdf_ext.apply(lambda p: p.buffer(1e3)).plot(ax=ax, color='None', edgecolor='royalblue', label='floating ice', linewidth=0.4, zorder=502)
     
-
-    cfig, cax = plt.subplots(figsize=[4, 0.13])
-    #cax.axis('off')
+    
+    cfig, cax = plt.subplots(figsize=[4, 1])
+    cax.axis('off')
     #ax.text(0.5, 0.96, f'ICESat-2 ATL11 Height Change\n Basin {basin} 2019-2024', transform=ax.transAxes, 
     #        ha='center', va='center', fontsize=major_font_size, bbox=boxprops, zorder=502)
     # Create a ScalarMappable with the same colormap and normalization
@@ -733,3 +730,6 @@ tic = time.time()
 #fig_list = make_ensemble_figs(save=True)
 toc = time.time()
 print(f'DONE in {int((toc-tic)/60)}m {60-(toc-tic)%60:.0f} s')
+print('Generating ensemble plots...', end='', flush=True)
+#fig_list = make_ensemble_plots(save=True)
+print('DONE')
