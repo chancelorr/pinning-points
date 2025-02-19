@@ -11,7 +11,9 @@ Output: a geoTIFF file
 
 
 '''
-
+print('Loading libraries...', end='', flush=True)
+import time
+toc = time.time()
 # System libraries
 import os
 import sys
@@ -42,7 +44,6 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from dateutil.relativedelta import relativedelta
-import time
 
 #For plotting, ticking, and line collection
 from matplotlib import cm 
@@ -72,7 +73,8 @@ from rasterio.transform import from_origin
 from ipyleaflet import Map, basemaps, Polyline, GeoData, LayersControl
 from rasterio import warp
 from rasterio.crs import CRS
-
+tic = time.time()
+print(f'DONE in {int((tic-toc)/60)}m {(tic-toc)%60:.0f} s')
 
 ####################################################################################################################
 ##CONFIG##
@@ -84,11 +86,14 @@ gdal_data = '/usr/local/Caskroom/miniconda/base/envs/fresh/share/gdal'
 proj_lib = '/usr/local/Caskroom/miniconda/base/envs/fresh/share/proj'
 proj_data = '/usr/local/Caskroom/miniconda/base/envs/fresh/share/proj'
 
+# choose year
+year = 2021
+
 # choose file
 
 where = '/Volumes/nox2/Chance/its_live/'
-file_ux = f'{where}/ITS_LIVE_velocity_120m_RGI19A_2019_v02_vx.tif'
-file_uy = f'{where}/ITS_LIVE_velocity_120m_RGI19A_2019_v02_vy.tif'
+file_ux = f'{where}/ITS_LIVE_velocity_120m_RGI19A_{year}_v02_vx.tif'
+file_uy = f'{where}/ITS_LIVE_velocity_120m_RGI19A_{year}_v02_vy.tif'
 
 # Crop shape (not currently in use)
 shape = 'shapes/scripps_antarctic_polygons_CR.shp'
@@ -97,7 +102,7 @@ shape = 'shapes/scripps_antarctic_polygons_CR.shp'
 # output file
 
 out_where = '/Volumes/nox2/Chance/its_live/'
-out_file = f'{out_where}/its_live_2019_e1.tif'
+out_file = f'{out_where}/its_live_{year}_e1.tif'
 
 
 ####################################################################################################################
@@ -107,6 +112,9 @@ out_file = f'{out_where}/its_live_2019_e1.tif'
 crs_antarctica = 'EPSG:3031'
 crs_latlon = 'EPSG:4326'
 
+
+print('Loading data...', end='', flush=True)
+tic = time.time()
 dsux = rx.open_rasterio(file_ux)  # Open with rioxarray 
 tr = dsux.rio.transform()
 
@@ -122,7 +130,8 @@ dsuy.rio.write_crs(crs_antarctica, inplace=True)
 u=xr.merge([dsux.rename_vars({'vx': 'ux'}), dsuy.rename_vars({'vy': 'uy'})]).sel(band=1).drop_vars(['band'])
 u.rio.set_spatial_dims(x_dim='y', y_dim='x', inplace=True)
 u.rio.write_crs(crs_antarctica, inplace=True);
-
+toc = time.time()
+print(f'DONE in {int((toc-tic)/60)}m {(toc-tic)%60:.0f} s')
 
 #shapes
 
@@ -139,6 +148,7 @@ except:
 
 # run
 
+print('Calculating strain...', end='', flush=True)
 x, y = u.x.values, u.y.values
 
 u_0_0 = u.ux.differentiate(coord='x').values
@@ -194,10 +204,11 @@ e_ij_u.rio.write_crs(crs_antarctica, inplace=True);
 u_mag.rio.set_spatial_dims(x_dim='y', y_dim='x', inplace=True);
 u_mag.rio.write_crs(crs_antarctica, inplace=True);
 '''
-
+tic = time.time()
+print(f'DONE in {int((tic-toc)/60)}m {(tic-toc)%60:.0f} s')
 
 ## save
-
+print('Writing to file...', end='', flush=True)
 height, width = E_p[0, 0, :, :].shape  # Ensure these are integers
 
 meta = {
@@ -212,3 +223,7 @@ meta = {
 
 with rs.open(out_file, "w", **meta) as dst:
     dst.write(E_p[1, 1, :, :], 1)
+    
+    
+toc = time.time()
+print(f'DONE in {int((toc-tic)/60)}m {(toc-tic)%60:.0f} s')
